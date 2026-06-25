@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: us-options-pricer
+    env: python
+    plan: free
+    buildCommand: python -m pip install -r requirements.txt
+    startCommand: python app.py
+    autoDeploy: true
+    envVars:
+      - key: HOST
+        value: 0.0.0.0

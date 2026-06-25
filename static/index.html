@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>美股期权定价工作台</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%231d66d1'/%3E%3Cpath d='M14 42h36M18 38l8-10 8 6 12-16' fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">US Options Pricing</p>
+          <h1>美股期权定价工作台</h1>
+        </div>
+        <div class="status-pill" id="statusText">等待输入合约</div>
+      </header>
+
+      <section class="workspace">
+        <aside class="control-panel" aria-label="期权输入">
+          <div class="panel-section">
+            <label for="contractInput">期权合约</label>
+            <div class="input-row">
+              <input id="contractInput" value="AAPL270115C00300000" autocomplete="off" />
+              <button id="parseBtn" type="button">解析</button>
+            </div>
+            <p class="field-hint">支持 OCC 代码，也支持 “AAPL 2026-01-16 200 C”。</p>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label for="symbolInput">股票代码</label>
+              <input id="symbolInput" value="AAPL" autocomplete="off" />
+            </div>
+            <div>
+              <label for="typeInput">类型</label>
+              <select id="typeInput">
+                <option value="call">Call 看涨</option>
+                <option value="put">Put 看跌</option>
+              </select>
+            </div>
+            <div>
+              <label for="expiryInput">到期日</label>
+              <input id="expiryInput" type="date" value="2027-01-15" />
+            </div>
+            <div>
+              <label for="strikeInput">行权价</label>
+              <input id="strikeInput" type="number" step="0.01" value="300" />
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="input-row">
+              <select id="rangeInput" aria-label="历史数据范围">
+                <option value="6mo">6个月</option>
+                <option value="1y">1年</option>
+                <option value="2y" selected>2年</option>
+                <option value="5y">5年</option>
+              </select>
+              <button id="fetchBtn" type="button">拉取行情</button>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div>
+              <label for="spotInput">常规现价</label>
+              <input id="spotInput" type="number" step="0.01" />
+            </div>
+            <div>
+              <label for="afterHoursInput">盘后价/假设价</label>
+              <input id="afterHoursInput" type="number" step="0.01" placeholder="可手动输入" />
+            </div>
+            <div>
+              <label for="volWindowInput">历史波动率窗口</label>
+              <select id="volWindowInput">
+                <option value="20">20日</option>
+                <option value="30">30日</option>
+                <option value="60" selected>60日</option>
+                <option value="120">120日</option>
+                <option value="252">252日</option>
+              </select>
+            </div>
+            <div>
+              <label for="volInput">定价波动率 %</label>
+              <input id="volInput" type="number" step="0.1" value="30" />
+            </div>
+            <div>
+              <label for="rateInput">无风险利率 %</label>
+              <input id="rateInput" type="number" step="0.01" value="4.50" />
+            </div>
+            <div>
+              <label for="dividendInput">股息率 %</label>
+              <input id="dividendInput" type="number" step="0.01" value="0" />
+            </div>
+            <div>
+              <label for="stepsInput">美式树步数</label>
+              <input id="stepsInput" type="number" min="50" max="1000" step="50" value="400" />
+            </div>
+            <div>
+              <label for="contractSizeInput">合约股数</label>
+              <input id="contractSizeInput" type="number" min="1" step="1" value="100" />
+            </div>
+          </div>
+        </aside>
+
+        <section class="main-panel">
+          <div class="market-strip" id="marketStrip">
+            <div>
+              <span>常规价</span>
+              <strong id="regularPrice">--</strong>
+            </div>
+            <div>
+              <span>盘后价</span>
+              <strong id="postPrice">--</strong>
+            </div>
+            <div>
+              <span>60日年化波动率</span>
+              <strong id="vol60Value">--</strong>
+            </div>
+            <div>
+              <span>股息率估算</span>
+              <strong id="dividendValue">--</strong>
+            </div>
+          </div>
+
+          <div class="chart-panel">
+            <div class="section-heading">
+              <div>
+                <h2 id="chartTitle">价格与历史波动率</h2>
+                <p id="dataMeta">尚未拉取行情</p>
+              </div>
+              <div class="contract-code" id="contractCode">AAPL270115C00300000</div>
+            </div>
+            <canvas id="priceCanvas" width="980" height="260" aria-label="价格走势图"></canvas>
+          </div>
+
+          <div class="results-panel">
+            <div class="section-heading">
+              <div>
+                <h2>理论定价</h2>
+                <p id="modelMeta">等待计算</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>场景</th>
+                    <th>用于定价的现价</th>
+                    <th>欧式价</th>
+                    <th>美式价</th>
+                    <th>美式溢价</th>
+                    <th>合理区间</th>
+                    <th>一张合约估值</th>
+                  </tr>
+                </thead>
+                <tbody id="resultBody">
+                  <tr>
+                    <td colspan="7" class="empty-cell">请输入合约并拉取行情</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="diagnostics">
+            <div>
+              <h3>Greeks</h3>
+              <dl id="greeksList"></dl>
+            </div>
+            <div>
+              <h3>模型提示</h3>
+              <p id="modelNote">历史波动率只是估算输入，真实市场价通常由隐含波动率决定。</p>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
